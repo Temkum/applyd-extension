@@ -13,7 +13,7 @@
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
-// ── Provider definitions ──────────────────────────────────────────────────────
+//Provider definitions
 
 type Provider = 'anthropic' | 'openai' | 'deepseek' | 'gemini';
 
@@ -51,7 +51,7 @@ const PROVIDERS: Record<Provider, ProviderConfig> = {
   },
 };
 
-// ── Message types ─────────────────────────────────────────────────────────────
+//Message types
 
 interface ScannedFieldPayload {
   id: string;
@@ -66,14 +66,16 @@ interface FillAssistRequest {
   type: 'FILL_ASSIST';
   jobDescription: string;
   fields: ScannedFieldPayload[];
+  generateCoverLetter: boolean;
 }
 
 interface FillAssistResponse {
   answers?: Record<string, string | null>;
+  coverLetter?: string | null;
   error?: string;
 }
 
-// ── Message listener ──────────────────────────────────────────────────────────
+//Message listener
 
 chrome.runtime.onMessage.addListener(
   (
@@ -93,14 +95,19 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
-// ── Core handler ──────────────────────────────────────────────────────────────
+//Core handler
 
 async function handleFillAssist(
   msg: FillAssistRequest,
 ): Promise<FillAssistResponse> {
-  const stored = await chrome.storage.local.get(['applydProvider', 'applydApiKey']);
+  const stored = await chrome.storage.local.get([
+    'applydProvider',
+    'applydApiKey',
+    'applydResume',
+  ]);
   const provider = (stored.applydProvider ?? 'anthropic') as Provider;
   const apiKey = stored.applydApiKey as string | undefined;
+  const resume = (stored.applydResume as string | undefined)?.trim() ?? '';
 
   if (!apiKey) {
     return {
@@ -108,7 +115,12 @@ async function handleFillAssist(
     };
   }
 
-  const prompt = buildPrompt(msg.jobDescription, msg.fields);
+  const prompt = buildPrompt(
+    msg.jobDescription,
+    msg.fields,
+    resume,
+    msg.generateCoverLetter,
+  );
 
   let raw: string;
   try {
@@ -117,11 +129,10 @@ async function handleFillAssist(
     return { error: err instanceof Error ? err.message : 'Network error' };
   }
 
-  const answers = parseAnswers(raw, msg.fields);
-  return { answers };
+  return parseResponse(raw, msg.fields);
 }
 
-// ── Provider dispatch ─────────────────────────────────────────────────────────
+//Provider dispatch
 
 async function callProvider(
   provider: Provider,
@@ -132,15 +143,25 @@ async function callProvider(
     case 'anthropic':
       return callAnthropic(apiKey, prompt);
     case 'openai':
-      return callOpenAICompat('https://api.openai.com/v1/chat/completions', PROVIDERS.openai.model, apiKey, prompt);
+      return callOpenAICompat(
+        'https://api.openai.com/v1/chat/completions',
+        PROVIDERS.openai.model,
+        apiKey,
+        prompt,
+      );
     case 'deepseek':
-      return callOpenAICompat('https://api.deepseek.com/v1/chat/completions', PROVIDERS.deepseek.model, apiKey, prompt);
+      return callOpenAICompat(
+        'https://api.deepseek.com/v1/chat/completions',
+        PROVIDERS.deepseek.model,
+        apiKey,
+        prompt,
+      );
     case 'gemini':
       return callGemini(apiKey, prompt);
   }
 }
 
-// ── Anthropic ─────────────────────────────────────────────────────────────────
+//Anthropic
 
 async function callAnthropic(apiKey: string, prompt: string): Promise<string> {
   const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
@@ -162,7 +183,7 @@ async function callAnthropic(apiKey: string, prompt: string): Promise<string> {
   return data?.content?.[0]?.text ?? '';
 }
 
-// ── OpenAI-compatible (OpenAI + DeepSeek) ────────────────────────────────────
+//OpenAI-compatible (OpenAI + DeepSeek)
 
 async function callOpenAICompat(
   url: string,
@@ -189,7 +210,7 @@ async function callOpenAICompat(
   return data?.choices?.[0]?.message?.content ?? '';
 }
 
-// ── Gemini ────────────────────────────────────────────────────────────────────
+//Gemini
 
 async function callGemini(apiKey: string, prompt: string): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${PROVIDERS.gemini.model}:generateContent?key=${apiKey}`;
@@ -211,7 +232,7 @@ async function callGemini(apiKey: string, prompt: string): Promise<string> {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
-// ── Shared fetch helpers ──────────────────────────────────────────────────────
+//Shared fetch helpers
 
 async function fetchWithTimeout(
   url: string,
@@ -242,7 +263,7 @@ async function assertOk(res: Response, providerName: string): Promise<void> {
     const parsed = JSON.parse(body);
     // Each provider nests its error message differently
     const detail =
-      parsed?.error?.message ??       // Anthropic / OpenAI / DeepSeek
+      parsed?.error?.message ?? // Anthropic / OpenAI / DeepSeek
       parsed?.error?.status ??
       parsed?.message ??
       `HTTP ${res.status}`;
@@ -255,11 +276,13 @@ async function assertOk(res: Response, providerName: string): Promise<void> {
   }
 }
 
-// ── Prompt builder ────────────────────────────────────────────────────────────
+//Prompt builder
 
 function buildPrompt(
   jobDescription: string,
   fields: ScannedFieldPayload[],
+  resume: string,
+  generateCoverLetter: boolean,
 ): string {
   const fieldManifest = fields
     .map((f) => {
@@ -271,34 +294,45 @@ function buildPrompt(
     })
     .join('\n\n');
 
-  return `You are filling out a job application form. Return ONLY a valid JSON object — no markdown fences, no explanation, no preamble.
+  const resumeSection = resume
+    ? `CANDIDATE PROFILE / RESUME:\n${resume.slice(0, 4000)}\n\n`
+    : '';
 
-Keys must exactly match the Field IDs provided. Values are the candidate's answers as strings.
+  const coverLetterContract = generateCoverLetter
+    ? `- "coverLetter": a full, tailored cover letter (3-4 paragraphs) written from the candidate's perspective. Use their profile and the job description. Open with a strong hook, not "I am writing to apply". Address it generically (no "Dear [Name]"). Return as a plain string using \\n for paragraph breaks.`
+    : `- "coverLetter": null`;
+
+  return `You are filling out a job application form on behalf of a candidate. Return ONLY a valid JSON object — no markdown fences, no explanation, no preamble.
+
+The JSON must have exactly two top-level keys:
+- "answers": an object where keys exactly match the Field IDs provided and values are the candidate's answers as strings or null
+${coverLetterContract}
 
 JOB DESCRIPTION:
 ${jobDescription.slice(0, 3000)}
 
-FORM FIELDS:
+${resumeSection}FORM FIELDS:
 ${fieldManifest}
 
 RULES:
+- Use the candidate profile to answer accurately — years of experience, skills, contact details, and salary expectations should come from the profile when available
 - For yes/no questions return exactly "Yes" or "No"
 - For select/radio fields return one of the provided options verbatim
-- For salary fields use a reasonable market rate based on the role and seniority in the job description
-- For "why this company / why this role" questions write 2-3 specific sentences referencing the job description
+- For salary fields use the candidate's expectation from their profile if present; otherwise a reasonable market rate based on role and seniority
+- For "why this company / why this role" questions write 2-3 specific sentences referencing both the job description and the candidate's background
 - For demographic / EEO fields (race, gender, disability, veteran status) return "Prefer not to say" unless only specific options are provided, then pick the most neutral one
-- For fields you cannot answer from the job description return null
-- Never invent credentials, years of experience, or certifications not implied by the job description
+- For fields you cannot answer from the job description or profile return null
+- Never invent credentials, years of experience, or certifications not present in the profile or clearly implied by the job description
 
-Return ONLY the JSON object. Example: {"field_id_1": "answer", "field_id_2": null}`;
+Return ONLY the JSON object. Example: {"answers": {"field_id_1": "answer", "field_id_2": null}, "coverLetter": null}`;
 }
 
-// ── Answer parser ─────────────────────────────────────────────────────────────
+//Response parser
 
-function parseAnswers(
+function parseResponse(
   raw: string,
   fields: ScannedFieldPayload[],
-): Record<string, string | null> {
+): FillAssistResponse {
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '')
@@ -311,29 +345,48 @@ function parseAnswers(
     // Parse failure — return nulls so the sidebar shows "No answer generated"
     // rather than crashing silently
     const nullMap: Record<string, null> = {};
-    fields.forEach((f) => { nullMap[f.id] = null; });
-    return nullMap;
+    fields.forEach((f) => {
+      nullMap[f.id] = null;
+    });
+    return { answers: nullMap, coverLetter: null };
   }
+
+  // Support both new envelope format {"answers":{...},"coverLetter":"..."}
+  // and the old flat format {"field_id": "answer"} for backward compat.
+  const rawAnswers =
+    parsed['answers'] !== undefined && typeof parsed['answers'] === 'object'
+      ? (parsed['answers'] as Record<string, unknown>)
+      : parsed;
 
   const answers: Record<string, string | null> = {};
   fields.forEach((f) => {
-    const val = parsed[f.id];
+    const val = rawAnswers[f.id];
     answers[f.id] =
       val === null || val === undefined ? null : String(val).trim() || null;
   });
 
-  return answers;
+  const coverLetterRaw = parsed['coverLetter'];
+  const coverLetter =
+    typeof coverLetterRaw === 'string' && coverLetterRaw.trim()
+      ? coverLetterRaw.trim()
+      : null;
+
+  return { answers, coverLetter };
 }
 
-// ── Install hook ──────────────────────────────────────────────────────────────
+//Install hook
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === 'install') {
-    chrome.storage.local.remove(['applydApiKey', 'applydProvider']);
+    chrome.storage.local.remove([
+      'applydApiKey',
+      'applydProvider',
+      'applydResume',
+    ]);
   }
 });
 
-// ── Exports for popup (provider metadata only — no keys) ──────────────────────
+//Exports for popup (provider metadata only — no keys)
 
 // Popup reads PROVIDERS via chrome.runtime.sendMessage so it never
 // needs to import background.ts directly.

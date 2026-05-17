@@ -26,20 +26,11 @@
       keyHint: "AIzaSy..."
     }
   };
-  var PROVIDER_ORDER = [
-    "anthropic",
-    "openai",
-    "deepseek",
-    "gemini"
-  ];
+  var PROVIDER_ORDER = ["anthropic", "openai", "deepseek", "gemini"];
   var viewSetup = document.getElementById("view-setup");
   var viewMain = document.getElementById("view-main");
-  var providerSelect = document.getElementById(
-    "provider-select"
-  );
-  var apiKeyInput = document.getElementById(
-    "api-key-input"
-  );
+  var providerSelect = document.getElementById("provider-select");
+  var apiKeyInput = document.getElementById("api-key-input");
   var keyHintEl = document.getElementById("key-hint");
   var saveKeyBtn = document.getElementById("save-key-btn");
   var setupError = document.getElementById("setup-error");
@@ -61,10 +52,7 @@
       updateKeyHint(providerSelect.value);
     });
     updateKeyHint("anthropic");
-    const stored = await chrome.storage.local.get([
-      "applydProvider",
-      "applydApiKey"
-    ]);
+    const stored = await chrome.storage.local.get(["applydProvider", "applydApiKey"]);
     if (stored.applydApiKey) {
       showMain(stored.applydProvider ?? "anthropic");
     } else {

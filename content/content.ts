@@ -3,14 +3,15 @@ import { mountSidebar, mountLoadingState, mountErrorState } from './sidebar';
 
 interface FillAssistBackgroundResponse {
   answers?: Record<string, string | null>;
+  coverLetter?: string | null;
   error?: string;
 }
 
 // Listen for TRIGGER_FILL_ASSIST from popup
 chrome.runtime.onMessage.addListener(
-  (msg: { type: string; jobDescription?: string }, _sender, sendResponse) => {
+  (msg: { type: string; jobDescription?: string; generateCoverLetter?: boolean }, _sender, sendResponse) => {
     if (msg.type === 'TRIGGER_FILL_ASSIST' && msg.jobDescription) {
-      handleFillAssist(msg.jobDescription).then(
+      handleFillAssist(msg.jobDescription, msg.generateCoverLetter ?? false).then(
         () => sendResponse({ success: true }),
         (err) =>
           sendResponse({
@@ -31,7 +32,7 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
-async function handleFillAssist(jobDescription: string): Promise<void> {
+async function handleFillAssist(jobDescription: string, generateCoverLetter: boolean): Promise<void> {
   const fields = scanFormFields();
 
   if (fields.length === 0) {
@@ -48,6 +49,7 @@ async function handleFillAssist(jobDescription: string): Promise<void> {
     type: 'FILL_ASSIST',
     jobDescription,
     fields: fields.map(({ element, ...rest }) => rest),
+    generateCoverLetter,
   }) as FillAssistBackgroundResponse;
 
   if (response.error) {
@@ -56,6 +58,6 @@ async function handleFillAssist(jobDescription: string): Promise<void> {
   }
 
   if (response.answers) {
-    mountSidebar(fields, response.answers);
+    mountSidebar(fields, response.answers, response.coverLetter ?? null);
   }
 }

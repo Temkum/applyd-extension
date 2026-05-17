@@ -4,12 +4,12 @@ interface AnswerMap {
   [fieldId: string]: string | null;
 }
 
-export function mountSidebar(fields: ScannedField[], answers: AnswerMap): void {
+export function mountSidebar(fields: ScannedField[], answers: AnswerMap, coverLetter: string | null): void {
   removeSidebar();
 
   const sidebar = document.createElement('div');
   sidebar.id = 'applyd-sidebar';
-  sidebar.innerHTML = buildSidebarHTML(fields, answers);
+  sidebar.innerHTML = buildSidebarHTML(fields, answers, coverLetter);
   document.body.appendChild(sidebar);
 
   attachListeners(sidebar, fields);
@@ -65,7 +65,21 @@ export function removeSidebar(): void {
   document.getElementById('applyd-sidebar')?.remove();
 }
 
-function buildSidebarHTML(fields: ScannedField[], answers: AnswerMap): string {
+function buildSidebarHTML(fields: ScannedField[], answers: AnswerMap, coverLetter: string | null): string {
+  const coverLetterHtml = coverLetter
+    ? `
+      <div class="applyd-cover-letter-card">
+        <div class="applyd-cover-letter-header">
+          <span class="applyd-cover-letter-title">Cover Letter</span>
+          <button class="applyd-copy-btn applyd-cover-letter-copy" data-answer="${escapeHtmlAttr(coverLetter)}">
+            Copy
+          </button>
+        </div>
+        <div class="applyd-cover-letter-body">${escapeHtml(coverLetter)}</div>
+      </div>
+    `
+    : '';
+
   const items = fields
     .map((field) => {
       const answer = answers[field.id];
@@ -107,6 +121,7 @@ function buildSidebarHTML(fields: ScannedField[], answers: AnswerMap): string {
       <span class="applyd-header-count">${answeredCount}/${totalCount} answered</span>
       <button id="applyd-close" aria-label="Close">✕</button>
     </div>
+    ${coverLetterHtml}
     <div class="applyd-fields">${items}</div>
   `;
 }

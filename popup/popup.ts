@@ -50,7 +50,7 @@ const PROVIDER_ORDER: Provider[] = [
   'gemini',
 ];
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
+// DOM refs
 
 const viewSetup = document.getElementById('view-setup')!;
 const viewMain = document.getElementById('view-main')!;
@@ -62,6 +62,9 @@ const providerSelect = document.getElementById(
 const apiKeyInput = document.getElementById(
   'api-key-input',
 ) as HTMLInputElement;
+const resumeInput = document.getElementById(
+  'resume-input',
+) as HTMLTextAreaElement;
 const keyHintEl = document.getElementById('key-hint')!;
 const saveKeyBtn = document.getElementById('save-key-btn') as HTMLButtonElement;
 const setupError = document.getElementById('setup-error')!;
@@ -69,13 +72,16 @@ const setupError = document.getElementById('setup-error')!;
 // Main
 const providerBadge = document.getElementById('provider-badge')!;
 const jobDesc = document.getElementById('job-desc') as HTMLTextAreaElement;
+const coverLetterCheckbox = document.getElementById(
+  'cover-letter-checkbox',
+) as HTMLInputElement;
 const fillBtn = document.getElementById('fill-btn') as HTMLButtonElement;
 const scanBtn = document.getElementById('scan-btn') as HTMLButtonElement;
 const changeKeyLink = document.getElementById('change-key-link')!;
 const errorEl = document.getElementById('error-msg')!;
 const scanResult = document.getElementById('scan-result')!;
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+// Init
 
 async function init(): Promise<void> {
   // Populate provider selector
@@ -95,7 +101,14 @@ async function init(): Promise<void> {
   const stored = await chrome.storage.local.get([
     'applydProvider',
     'applydApiKey',
+    'applydResume',
   ]);
+
+  // Pre-fill resume textarea from storage so the user can review/edit it
+  if (stored.applydResume) {
+    resumeInput.value = stored.applydResume as string;
+  }
+
   if (stored.applydApiKey) {
     showMain((stored.applydProvider as Provider) ?? 'anthropic');
   } else {
@@ -105,6 +118,16 @@ async function init(): Promise<void> {
   jobDesc.addEventListener('input', () => {
     fillBtn.disabled = !jobDesc.value.trim();
   });
+
+  // Persist resume updates immediately so changes survive popup close
+  resumeInput.addEventListener('change', () => {
+    const text = resumeInput.value.trim();
+    if (text) {
+      chrome.storage.local.set({ applydResume: text });
+    } else {
+      chrome.storage.local.remove(['applydResume']);
+    }
+  });
 }
 
 function updateKeyHint(provider: Provider): void {
@@ -112,7 +135,7 @@ function updateKeyHint(provider: Provider): void {
   keyHintEl.textContent = `Starts with "${PROVIDERS[provider].keyPrefix}"`;
 }
 
-// ── Views ─────────────────────────────────────────────────────────────────────
+// Views
 
 function showSetup(): void {
   viewSetup.classList.add('active');
@@ -128,7 +151,7 @@ function showMain(provider: Provider): void {
   fillBtn.disabled = !jobDesc.value.trim();
 }
 
-// ── Save key ──────────────────────────────────────────────────────────────────
+// Save key
 
 saveKeyBtn.addEventListener('click', async () => {
   const provider = providerSelect.value as Provider;
@@ -154,10 +177,18 @@ saveKeyBtn.addEventListener('click', async () => {
   saveKeyBtn.textContent = 'Saving...';
   setupError.textContent = '';
 
-  await chrome.storage.local.set({
+  const toStore: Record<string, string> = {
     applydProvider: provider,
     applydApiKey: key,
-  });
+  };
+
+  // Persist resume text if the user filled it in during setup
+  const resumeText = resumeInput.value.trim();
+  if (resumeText) {
+    toStore['applydResume'] = resumeText;
+  }
+
+  await chrome.storage.local.set(toStore);
 
   saveKeyBtn.disabled = false;
   saveKeyBtn.textContent = 'Save Key';
@@ -168,7 +199,7 @@ apiKeyInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') saveKeyBtn.click();
 });
 
-// ── Change key ────────────────────────────────────────────────────────────────
+// Change key
 
 changeKeyLink.addEventListener('click', async () => {
   await chrome.storage.local.remove(['applydApiKey', 'applydProvider']);
@@ -178,7 +209,7 @@ changeKeyLink.addEventListener('click', async () => {
   showSetup();
 });
 
-// ── Generate answers ──────────────────────────────────────────────────────────
+// Generate answers
 
 fillBtn.addEventListener('click', async () => {
   const description = jobDesc.value.trim();
@@ -198,7 +229,11 @@ fillBtn.addEventListener('click', async () => {
 
   chrome.tabs.sendMessage(
     tab.id,
-    { type: 'TRIGGER_FILL_ASSIST', jobDescription: description },
+    {
+      type: 'TRIGGER_FILL_ASSIST',
+      jobDescription: description,
+      generateCoverLetter: coverLetterCheckbox.checked,
+    },
     (response) => {
       if (chrome.runtime.lastError) {
         showError(
@@ -220,7 +255,7 @@ fillBtn.addEventListener('click', async () => {
   );
 });
 
-// ── Scan form ─────────────────────────────────────────────────────────────────
+// Scan form
 
 scanBtn.addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -251,7 +286,7 @@ scanBtn.addEventListener('click', async () => {
   });
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
 interface ScannedField {
   id: string;

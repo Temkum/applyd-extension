@@ -10,7 +10,9 @@
   z-index: 2147483647; /* max z-index, stay above everything */
   display: flex;
   flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
   font-size: 13px;
   color: #1a1a1a;
   animation: applyd-slide-in 0.2s ease-out;
@@ -18,8 +20,12 @@
 }
 
 @keyframes applyd-slide-in {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 /* ── Header ─────────────────────────────── */
@@ -170,7 +176,9 @@
 }
 
 @keyframes applyd-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .applyd-loading-job {
@@ -230,10 +238,54 @@
   outline: 3px solid #6366f1 !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25) !important;
-  transition: outline 0.1s, box-shadow 0.1s !important;
+  transition:
+    outline 0.1s,
+    box-shadow 0.1s !important;
 }
 
 /* ── Add padding to body so sidebar doesn't cover page edges ── */
 body.applyd-sidebar-open {
   padding-right: 380px;
+}
+
+/* ── Cover letter card ──────────────────── */
+
+.applyd-cover-letter-card {
+  margin: 10px 16px;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #eef2ff;
+  flex-shrink: 0;
+}
+
+.applyd-cover-letter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #c7d2fe;
+}
+
+.applyd-cover-letter-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4f46e5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.applyd-cover-letter-copy {
+  /* Inherits .applyd-copy-btn styles; override margin */
+  margin-top: 0;
+}
+
+.applyd-cover-letter-body {
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #1a1a1a;
+  max-height: 220px;
+  overflow-y: auto;
 }
