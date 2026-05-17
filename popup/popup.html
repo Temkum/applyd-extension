@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Applyd</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+      color: #1a1a1a;
+      font-size: 14px;
+    }
+    .container { padding: 16px; }
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: #6366f1;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-connected {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .status-disconnected {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .job-select {
+      margin-bottom: 12px;
+    }
+    .job-select label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+    .job-select select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary {
+      background: #6366f1;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-primary:disabled {
+      background: #a5b4fc;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #fff;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover { background: #f3f4f6; }
+    .error {
+      color: #dc2626;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .hint {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <span>Applyd</span>
+    </div>
+
+    <div id="status" class="status status-disconnected">
+      <span class="status-dot"></span>
+      <span id="status-text">Not connected</span>
+    </div>
+
+    <div class="job-select">
+      <label for="job-picker">Apply for job</label>
+      <select id="job-picker" disabled>
+        <option value="">Select a job...</option>
+      </select>
+    </div>
+
+    <button id="fill-btn" class="btn btn-primary" disabled>
+      Fill Form
+    </button>
+    <button id="scan-btn" class="btn btn-secondary">
+      Scan Current Form
+    </button>
+
+    <div id="error-msg" class="error"></div>
+
+    <hr class="divider" />
+    <p class="hint">
+      Open a job from the Applyd dashboard, then navigate to its application form.
+      Click <strong>Fill Form</strong> and copy answers into each field.
+    </p>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
