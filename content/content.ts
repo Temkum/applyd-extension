@@ -1,88 +1,61 @@
 import { scanFormFields } from './scanner';
 import { mountSidebar, mountLoadingState, mountErrorState } from './sidebar';
 
-interface FillAssistMessage {
-  type: 'TRIGGER_FILL_ASSIST';
-  jobDescription: string;
-  apiBaseUrl: string;
-  authToken: string;
+interface FillAssistBackgroundResponse {
+  answers?: Record<string, string | null>;
+  error?: string;
 }
 
-interface FillAssistResponse {
-  answers: Record<string, string | null>;
-}
-
+// Listen for TRIGGER_FILL_ASSIST from popup
 chrome.runtime.onMessage.addListener(
-  (msg: FillAssistMessage, _sender, sendResponse) => {
-    if (msg.type !== 'TRIGGER_FILL_ASSIST') return;
+  (msg: { type: string; jobDescription?: string }, _sender, sendResponse) => {
+    if (msg.type === 'TRIGGER_FILL_ASSIST' && msg.jobDescription) {
+      handleFillAssist(msg.jobDescription).then(
+        () => sendResponse({ success: true }),
+        (err) =>
+          sendResponse({
+            success: false,
+            error: err instanceof Error ? err.message : 'Unknown error',
+          }),
+      );
+      return true;
+    }
 
-    handleFillAssist(msg).then(
-      () => sendResponse({ success: true }),
-      (err) =>
-        sendResponse({
-          success: false,
-          error: err instanceof Error ? err.message : 'Unknown error',
-        }),
-    );
-
-    return true;
+    if (msg.type === 'SCAN_FIELDS') {
+      const fields = scanFormFields();
+      sendResponse({
+        count: fields.length,
+        fields: fields.map(({ element, ...rest }) => rest),
+      });
+    }
   },
 );
 
-async function handleFillAssist(msg: FillAssistMessage): Promise<void> {
-  const { jobDescription, apiBaseUrl, authToken } = msg;
-
+async function handleFillAssist(jobDescription: string): Promise<void> {
   const fields = scanFormFields();
+
   if (fields.length === 0) {
     mountErrorState(
-      'No form fields detected on this page. Make sure you are on a page with input fields.',
+      'No form fields detected on this page. Make sure you are on a job application form.',
     );
     return;
   }
 
   mountLoadingState('Job application form');
 
-  try {
-    const res = await fetch(`${apiBaseUrl}/api/applications/fill-assist`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({
-        jobDescription,
-        fields: fields.map(({ element, ...rest }) => rest),
-      }),
-    });
+  // Delegate API call to background service worker — it owns the API key
+  const response = await chrome.runtime.sendMessage({
+    type: 'FILL_ASSIST',
+    jobDescription,
+    fields: fields.map(({ element, ...rest }) => rest),
+  }) as FillAssistBackgroundResponse;
 
-    if (!res.ok) {
-      const body = await res.text();
-      let detail = `HTTP ${res.status}`;
-      try {
-        const parsed = JSON.parse(body);
-        if (parsed.message) detail = parsed.message;
-      } catch {
-        /* not JSON */
-      }
-      throw new Error(detail);
-    }
+  if (response.error) {
+    mountErrorState(response.error);
+    return;
+  }
 
-    const data: FillAssistResponse = await res.json();
-    mountSidebar(fields, data.answers);
-  } catch (err) {
-    mountErrorState(err instanceof Error ? err.message : 'Unknown error');
+  if (response.answers) {
+    mountSidebar(fields, response.answers);
   }
 }
-
-// Diagnostic scan — returns field list to popup
-chrome.runtime.onMessage.addListener(
-  (msg: { type: 'SCAN_FIELDS' }, _sender, sendResponse) => {
-    if (msg.type !== 'SCAN_FIELDS') return;
-
-    const fields = scanFormFields();
-    sendResponse({
-      count: fields.length,
-      fields: fields.map(({ element, ...rest }) => rest),
-    });
-  },
-);

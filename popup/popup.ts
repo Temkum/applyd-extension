@@ -1,36 +1,105 @@
-interface StoredSession {
-  token: string;
-  apiBaseUrl: string;
-  userEmail: string;
-  expiresAt: number;
+/**
+ * Popup controller — multi-provider API key management.
+ *
+ * Stores: applydProvider (string) + applydApiKey (string) in chrome.storage.local.
+ * The key is never sent anywhere except from background.ts to the selected provider.
+ */
+
+type Provider = 'anthropic' | 'openai' | 'deepseek' | 'gemini';
+
+interface ProviderConfig {
+  label: string;
+  model: string;
+  keyPrefix: string;
+  keyHint: string;
 }
 
-const viewDisconnected = document.getElementById('view-disconnected')!;
+// Mirror of background.ts PROVIDERS — kept in sync manually.
+// Popup cannot import background.ts directly (different bundle).
+const PROVIDERS: Record<Provider, ProviderConfig> = {
+  anthropic: {
+    label: 'Anthropic (Claude)',
+    model: 'claude-sonnet-4-20250514',
+    keyPrefix: 'sk-ant-',
+    keyHint: 'sk-ant-api03-...',
+  },
+  openai: {
+    label: 'OpenAI (GPT-4o)',
+    model: 'gpt-4o',
+    keyPrefix: 'sk-',
+    keyHint: 'sk-proj-...',
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    model: 'deepseek-chat',
+    keyPrefix: 'sk-',
+    keyHint: 'sk-...',
+  },
+  gemini: {
+    label: 'Google Gemini',
+    model: 'gemini-2.0-flash',
+    keyPrefix: 'AIza',
+    keyHint: 'AIzaSy...',
+  },
+};
+
+const PROVIDER_ORDER: Provider[] = [
+  'anthropic',
+  'openai',
+  'deepseek',
+  'gemini',
+];
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+
+const viewSetup = document.getElementById('view-setup')!;
 const viewMain = document.getElementById('view-main')!;
 
-const statusText = document.getElementById('status-text')!;
-const logoutLink = document.getElementById('logout-link')!;
+// Setup
+const providerSelect = document.getElementById(
+  'provider-select',
+) as HTMLSelectElement;
+const apiKeyInput = document.getElementById(
+  'api-key-input',
+) as HTMLInputElement;
+const keyHintEl = document.getElementById('key-hint')!;
+const saveKeyBtn = document.getElementById('save-key-btn') as HTMLButtonElement;
+const setupError = document.getElementById('setup-error')!;
 
+// Main
+const providerBadge = document.getElementById('provider-badge')!;
 const jobDesc = document.getElementById('job-desc') as HTMLTextAreaElement;
 const fillBtn = document.getElementById('fill-btn') as HTMLButtonElement;
 const scanBtn = document.getElementById('scan-btn') as HTMLButtonElement;
+const changeKeyLink = document.getElementById('change-key-link')!;
 const errorEl = document.getElementById('error-msg')!;
 const scanResult = document.getElementById('scan-result')!;
 
-let currentSession: StoredSession | null = null;
+// ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
-  const stored = await chrome.storage.local.get('applydSession');
-  const session = stored.applydSession as StoredSession | undefined;
+  // Populate provider selector
+  PROVIDER_ORDER.forEach((id) => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = PROVIDERS[id].label;
+    providerSelect.appendChild(opt);
+  });
 
-  if (session && session.expiresAt > Date.now()) {
-    currentSession = session;
-    showConnected(session.userEmail);
+  // Update placeholder when provider changes
+  providerSelect.addEventListener('change', () => {
+    updateKeyHint(providerSelect.value as Provider);
+  });
+  updateKeyHint('anthropic');
+
+  const stored = await chrome.storage.local.get([
+    'applydProvider',
+    'applydApiKey',
+  ]);
+  if (stored.applydApiKey) {
+    showMain((stored.applydProvider as Provider) ?? 'anthropic');
   } else {
-    if (session) {
-      await chrome.storage.local.remove('applydSession');
-    }
-    showDisconnected();
+    showSetup();
   }
 
   jobDesc.addEventListener('input', () => {
@@ -38,31 +107,82 @@ async function init(): Promise<void> {
   });
 }
 
-function showDisconnected(): void {
-  viewDisconnected.classList.add('active');
-  viewMain.classList.remove('active');
+function updateKeyHint(provider: Provider): void {
+  apiKeyInput.placeholder = PROVIDERS[provider].keyHint;
+  keyHintEl.textContent = `Starts with "${PROVIDERS[provider].keyPrefix}"`;
 }
 
-function showConnected(email: string): void {
-  viewDisconnected.classList.remove('active');
+// ── Views ─────────────────────────────────────────────────────────────────────
+
+function showSetup(): void {
+  viewSetup.classList.add('active');
+  viewMain.classList.remove('active');
+  apiKeyInput.value = '';
+  setupError.textContent = '';
+}
+
+function showMain(provider: Provider): void {
+  viewSetup.classList.remove('active');
   viewMain.classList.add('active');
-  statusText.textContent = email;
+  providerBadge.textContent = PROVIDERS[provider].label;
   fillBtn.disabled = !jobDesc.value.trim();
 }
 
-logoutLink.addEventListener('click', async () => {
-  await chrome.storage.local.remove('applydSession');
-  currentSession = null;
+// ── Save key ──────────────────────────────────────────────────────────────────
+
+saveKeyBtn.addEventListener('click', async () => {
+  const provider = providerSelect.value as Provider;
+  const key = apiKeyInput.value.trim();
+
+  if (!key) {
+    setupError.textContent = 'Please enter your API key.';
+    return;
+  }
+
+  const config = PROVIDERS[provider];
+
+  // DeepSeek and OpenAI both use 'sk-' — skip prefix check for DeepSeek
+  // since its keys look identical to OpenAI keys.
+  const prefixOk = provider === 'deepseek' || key.startsWith(config.keyPrefix);
+
+  if (!prefixOk) {
+    setupError.textContent = `This doesn't look like a ${config.label} key (expected prefix: ${config.keyPrefix}).`;
+    return;
+  }
+
+  saveKeyBtn.disabled = true;
+  saveKeyBtn.textContent = 'Saving...';
+  setupError.textContent = '';
+
+  await chrome.storage.local.set({
+    applydProvider: provider,
+    applydApiKey: key,
+  });
+
+  saveKeyBtn.disabled = false;
+  saveKeyBtn.textContent = 'Save Key';
+  showMain(provider);
+});
+
+apiKeyInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') saveKeyBtn.click();
+});
+
+// ── Change key ────────────────────────────────────────────────────────────────
+
+changeKeyLink.addEventListener('click', async () => {
+  await chrome.storage.local.remove(['applydApiKey', 'applydProvider']);
   jobDesc.value = '';
-  fillBtn.disabled = true;
   errorEl.textContent = '';
   scanResult.hidden = true;
-  showDisconnected();
+  showSetup();
 });
+
+// ── Generate answers ──────────────────────────────────────────────────────────
 
 fillBtn.addEventListener('click', async () => {
   const description = jobDesc.value.trim();
-  if (!description || !currentSession) return;
+  if (!description) return;
 
   errorEl.textContent = '';
   scanResult.hidden = true;
@@ -78,16 +198,11 @@ fillBtn.addEventListener('click', async () => {
 
   chrome.tabs.sendMessage(
     tab.id,
-    {
-      type: 'TRIGGER_FILL_ASSIST',
-      jobDescription: description,
-      apiBaseUrl: currentSession.apiBaseUrl,
-      authToken: currentSession.token,
-    },
+    { type: 'TRIGGER_FILL_ASSIST', jobDescription: description },
     (response) => {
       if (chrome.runtime.lastError) {
         showError(
-          'Content script not loaded. Refresh the application form page and try again.',
+          'Extension not loaded on this page. Refresh the application form page and try again.',
         );
         resetFillBtn();
         return;
@@ -104,6 +219,8 @@ fillBtn.addEventListener('click', async () => {
     },
   );
 });
+
+// ── Scan form ─────────────────────────────────────────────────────────────────
 
 scanBtn.addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -122,7 +239,7 @@ scanBtn.addEventListener('click', async () => {
     scanBtn.textContent = 'Scan Current Form';
 
     if (chrome.runtime.lastError) {
-      showError('Content script not loaded. Refresh this page and try again.');
+      showError('Could not reach the page. Try refreshing it first.');
       return;
     }
 
@@ -133,6 +250,8 @@ scanBtn.addEventListener('click', async () => {
     }
   });
 });
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 interface ScannedField {
   id: string;
@@ -152,16 +271,8 @@ function showScanResults(fields: ScannedField[]): void {
       </div>`,
     )
     .join('');
-
   scanResult.innerHTML = header + items;
   scanResult.hidden = false;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 function showError(msg: string): void {
@@ -172,6 +283,10 @@ function showError(msg: string): void {
 function resetFillBtn(): void {
   fillBtn.disabled = !jobDesc.value.trim();
   fillBtn.textContent = 'Generate Answers';
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 init();

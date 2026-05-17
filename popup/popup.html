@@ -18,42 +18,8 @@
       font-size: 18px;
       font-weight: 700;
       color: #6366f1;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      margin-bottom: 14px;
     }
-
-    .status {
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .status-connected { background: #dcfce7; color: #166534; }
-    .status-disconnected { background: #fef2f2; color: #991b1b; }
-    .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-      flex-shrink: 0;
-    }
-    .status-user {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .status-logout {
-      font-size: 11px;
-      color: #6b7280;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    .status-logout:hover { color: #dc2626; }
 
     label {
       display: block;
@@ -62,7 +28,7 @@
       color: #6b7280;
       margin-bottom: 4px;
     }
-    textarea {
+    select, input[type="password"], textarea {
       width: 100%;
       padding: 8px;
       border: 1px solid #d1d5db;
@@ -70,14 +36,24 @@
       font-size: 13px;
       font-family: inherit;
       background: #fff;
-      resize: vertical;
+      color: #1a1a1a;
     }
+    select { cursor: pointer; }
+    input[type="password"]:focus,
+    select:focus,
     textarea:focus {
       outline: none;
       border-color: #6366f1;
       box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
     }
-    .form-group { margin-bottom: 10px; }
+    textarea { resize: vertical; }
+    .form-group { margin-bottom: 12px; }
+
+    .key-hint {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 5px;
+    }
 
     .btn {
       display: block;
@@ -114,12 +90,42 @@
       margin-top: 12px;
       line-height: 1.5;
     }
-    .divider {
-      border: none;
-      border-top: 1px solid #e5e7eb;
-      margin: 12px 0;
-    }
+    .hint a { color: #6366f1; text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
+    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
 
+    /* Provider badge shown in main view */
+    .provider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .provider-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      background: #eef2ff;
+      color: #4f46e5;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .provider-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #6366f1;
+    }
+    .change-key {
+      font-size: 11px;
+      color: #9ca3af;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .change-key:hover { color: #dc2626; }
+
+    /* Scan results */
     .scan-result {
       margin-top: 8px;
       padding: 8px 10px;
@@ -130,11 +136,7 @@
       max-height: 140px;
       overflow-y: auto;
     }
-    .scan-result-header {
-      font-weight: 600;
-      color: #166534;
-      margin-bottom: 6px;
-    }
+    .scan-result-header { font-weight: 600; color: #166534; margin-bottom: 6px; }
     .scan-field-item {
       display: flex;
       justify-content: space-between;
@@ -143,66 +145,81 @@
       color: #374151;
     }
     .scan-field-label {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      flex: 1; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
       margin-right: 8px;
     }
-    .scan-field-type {
-      font-size: 10px;
-      color: #9ca3af;
-      text-transform: uppercase;
-      flex-shrink: 0;
+    .scan-field-type { font-size: 10px; color: #9ca3af; text-transform: uppercase; }
+
+    /* Provider docs links */
+    .provider-links { margin-top: 10px; }
+    .provider-links a {
+      display: block;
+      font-size: 11px;
+      color: #6366f1;
+      text-decoration: none;
+      margin-bottom: 3px;
     }
+    .provider-links a:hover { text-decoration: underline; }
 
     .view { display: none; }
     .view.active { display: block; }
-
-    .disconnected-message {
-      text-align: center;
-      padding: 16px 0;
-      color: #6b7280;
-      font-size: 13px;
-      line-height: 1.6;
-    }
-    .disconnected-message strong {
-      color: #6366f1;
-    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="logo">
-      <span>Applyd</span>
+    <div class="logo">Applyd</div>
+
+    <!-- ── Setup view ─────────────────────────────── -->
+    <div id="view-setup" class="view active">
+
+      <div class="form-group">
+        <label for="provider-select">AI Provider</label>
+        <select id="provider-select">
+          <!-- options injected by popup.ts -->
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="api-key-input">API Key</label>
+        <input
+          type="password"
+          id="api-key-input"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="key-hint" id="key-hint"></p>
+      </div>
+
+      <button id="save-key-btn" class="btn btn-primary">Save Key</button>
+      <div id="setup-error" class="error"></div>
+
+      <div class="provider-links">
+        <a href="https://console.anthropic.com/settings/keys" target="_blank">Get Anthropic key →</a>
+        <a href="https://platform.openai.com/api-keys" target="_blank">Get OpenAI key →</a>
+        <a href="https://platform.deepseek.com/api_keys" target="_blank">Get DeepSeek key →</a>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank">Get Gemini key →</a>
+      </div>
     </div>
 
-    <!-- ── Not connected ─────────────────── -->
-    <div id="view-disconnected" class="view active">
-      <div class="status status-disconnected">
-        <span class="status-dot"></span>
-        <span>Not connected</span>
-      </div>
-      <div class="disconnected-message">
-        <p>Open the <strong>Applyd dashboard</strong> and log in to sync your session with the extension.</p>
-      </div>
-      <hr class="divider" />
-      <p class="hint">
-        Once connected, you can paste job descriptions and generate answers directly from any application form.
-      </p>
-    </div>
-
-    <!-- ── Connected ─────────────────────── -->
+    <!-- ── Main view ──────────────────────────────── -->
     <div id="view-main" class="view">
-      <div id="status" class="status status-connected">
-        <span class="status-dot"></span>
-        <span class="status-user" id="status-text">Connected</span>
-        <span class="status-logout" id="logout-link">Log out</span>
+
+      <div class="provider-row">
+        <span class="provider-badge">
+          <span class="provider-dot"></span>
+          <span id="provider-badge">Anthropic (Claude)</span>
+        </span>
+        <span class="change-key" id="change-key-link">Change provider / key</span>
       </div>
 
       <div class="form-group">
         <label for="job-desc">Job Description</label>
-        <textarea id="job-desc" rows="6" placeholder="Paste the job description here...&#10;&#10;Include the full posting so Applyd can generate accurate answers."></textarea>
+        <textarea
+          id="job-desc"
+          rows="7"
+          placeholder="Paste the full job description here...&#10;&#10;Include the role, requirements, and company info so Applyd can generate accurate answers."
+        ></textarea>
       </div>
 
       <button id="fill-btn" class="btn btn-primary" disabled>
@@ -217,9 +234,9 @@
 
       <hr class="divider" />
       <p class="hint">
-        Navigate to any job application form, paste the description above,
-        then click <strong>Generate Answers</strong>. Copy the responses
-        into each field manually.
+        Navigate to the job application form, paste the description above,
+        then click <strong>Generate Answers</strong>. A sidebar will appear
+        with answers you can copy into each field.
       </p>
     </div>
   </div>

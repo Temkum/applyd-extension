@@ -245,63 +245,45 @@
   // content/content.ts
   chrome.runtime.onMessage.addListener(
     (msg, _sender, sendResponse) => {
-      if (msg.type !== "TRIGGER_FILL_ASSIST") return;
-      handleFillAssist(msg).then(
-        () => sendResponse({ success: true }),
-        (err) => sendResponse({
-          success: false,
-          error: err instanceof Error ? err.message : "Unknown error"
-        })
-      );
-      return true;
+      if (msg.type === "TRIGGER_FILL_ASSIST" && msg.jobDescription) {
+        handleFillAssist(msg.jobDescription).then(
+          () => sendResponse({ success: true }),
+          (err) => sendResponse({
+            success: false,
+            error: err instanceof Error ? err.message : "Unknown error"
+          })
+        );
+        return true;
+      }
+      if (msg.type === "SCAN_FIELDS") {
+        const fields = scanFormFields();
+        sendResponse({
+          count: fields.length,
+          fields: fields.map(({ element, ...rest }) => rest)
+        });
+      }
     }
   );
-  async function handleFillAssist(msg) {
-    const { jobDescription, apiBaseUrl, authToken } = msg;
+  async function handleFillAssist(jobDescription) {
     const fields = scanFormFields();
     if (fields.length === 0) {
       mountErrorState(
-        "No form fields detected on this page. Make sure you are on a page with input fields."
+        "No form fields detected on this page. Make sure you are on a job application form."
       );
       return;
     }
     mountLoadingState("Job application form");
-    try {
-      const res = await fetch(`${apiBaseUrl}/api/applications/fill-assist`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          jobDescription,
-          fields: fields.map(({ element, ...rest }) => rest)
-        })
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        let detail = `HTTP ${res.status}`;
-        try {
-          const parsed = JSON.parse(body);
-          if (parsed.message) detail = parsed.message;
-        } catch {
-        }
-        throw new Error(detail);
-      }
-      const data = await res.json();
-      mountSidebar(fields, data.answers);
-    } catch (err) {
-      mountErrorState(err instanceof Error ? err.message : "Unknown error");
+    const response = await chrome.runtime.sendMessage({
+      type: "FILL_ASSIST",
+      jobDescription,
+      fields: fields.map(({ element, ...rest }) => rest)
+    });
+    if (response.error) {
+      mountErrorState(response.error);
+      return;
+    }
+    if (response.answers) {
+      mountSidebar(fields, response.answers);
     }
   }
-  chrome.runtime.onMessage.addListener(
-    (msg, _sender, sendResponse) => {
-      if (msg.type !== "SCAN_FIELDS") return;
-      const fields = scanFormFields();
-      sendResponse({
-        count: fields.length,
-        fields: fields.map(({ element, ...rest }) => rest)
-      });
-    }
-  );
 })();
