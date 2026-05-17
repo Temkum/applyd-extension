@@ -1,10 +1,9 @@
 import { scanFormFields } from './scanner';
-import { mountSidebar, mountLoadingState, mountErrorState, removeSidebar } from './sidebar';
+import { mountSidebar, mountLoadingState, mountErrorState } from './sidebar';
 
 interface FillAssistMessage {
   type: 'TRIGGER_FILL_ASSIST';
-  jobId: string;
-  jobTitle: string;
+  jobDescription: string;
   apiBaseUrl: string;
   authToken: string;
 }
@@ -13,27 +12,35 @@ interface FillAssistResponse {
   answers: Record<string, string | null>;
 }
 
-chrome.runtime.onMessage.addListener((msg: FillAssistMessage, _sender, sendResponse) => {
-  if (msg.type !== 'TRIGGER_FILL_ASSIST') return;
+chrome.runtime.onMessage.addListener(
+  (msg: FillAssistMessage, _sender, sendResponse) => {
+    if (msg.type !== 'TRIGGER_FILL_ASSIST') return;
 
-  handleFillAssist(msg).then(
-    () => sendResponse({ success: true }),
-    (err) => sendResponse({ success: false, error: err instanceof Error ? err.message : 'Unknown error' }),
-  );
+    handleFillAssist(msg).then(
+      () => sendResponse({ success: true }),
+      (err) =>
+        sendResponse({
+          success: false,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        }),
+    );
 
-  return true; // keep channel open for async response
-});
+    return true;
+  },
+);
 
 async function handleFillAssist(msg: FillAssistMessage): Promise<void> {
-  const { jobId, jobTitle, apiBaseUrl, authToken } = msg;
+  const { jobDescription, apiBaseUrl, authToken } = msg;
 
   const fields = scanFormFields();
   if (fields.length === 0) {
-    alert('Applyd: No form fields detected on this page.');
+    mountErrorState(
+      'No form fields detected on this page. Make sure you are on a page with input fields.',
+    );
     return;
   }
 
-  mountLoadingState(jobTitle);
+  mountLoadingState('Job application form');
 
   try {
     const res = await fetch(`${apiBaseUrl}/api/applications/fill-assist`, {
@@ -43,7 +50,7 @@ async function handleFillAssist(msg: FillAssistMessage): Promise<void> {
         Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({
-        jobId,
+        jobDescription,
         fields: fields.map(({ element, ...rest }) => rest),
       }),
     });
@@ -55,7 +62,7 @@ async function handleFillAssist(msg: FillAssistMessage): Promise<void> {
         const parsed = JSON.parse(body);
         if (parsed.message) detail = parsed.message;
       } catch {
-        // not JSON, use raw
+        /* not JSON */
       }
       throw new Error(detail);
     }
@@ -67,13 +74,15 @@ async function handleFillAssist(msg: FillAssistMessage): Promise<void> {
   }
 }
 
-// Listen for messages from the popup requesting a field scan (diagnostic)
-chrome.runtime.onMessage.addListener((msg: { type: 'SCAN_FIELDS' }, _sender, sendResponse) => {
-  if (msg.type !== 'SCAN_FIELDS') return;
+// Diagnostic scan — returns field list to popup
+chrome.runtime.onMessage.addListener(
+  (msg: { type: 'SCAN_FIELDS' }, _sender, sendResponse) => {
+    if (msg.type !== 'SCAN_FIELDS') return;
 
-  const fields = scanFormFields();
-  sendResponse({
-    count: fields.length,
-    fields: fields.map(({ element, ...rest }) => rest),
-  });
-});
+    const fields = scanFormFields();
+    sendResponse({
+      count: fields.length,
+      fields: fields.map(({ element, ...rest }) => rest),
+    });
+  },
+);

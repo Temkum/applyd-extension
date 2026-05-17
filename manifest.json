@@ -5,6 +5,13 @@
   "description": "AI-powered job application form filler — scan, generate, copy.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:3000/*",
+      "http://127.0.0.1:3000/*",
+      "https://*.applyd.com/*"
+    ]
+  },
   "background": {
     "service_worker": "background/background.js"
   },

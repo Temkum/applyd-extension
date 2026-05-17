@@ -1,5 +1,5 @@
 (() => {
-  // ../applyd-extension/content/scanner.ts
+  // content/scanner.ts
   function scanFormFields() {
     const fields = [];
     const seen = /* @__PURE__ */ new Set();
@@ -90,7 +90,7 @@
     }).filter(Boolean);
   }
 
-  // ../applyd-extension/content/sidebar.ts
+  // content/sidebar.ts
   function mountSidebar(fields, answers) {
     removeSidebar();
     const sidebar = document.createElement("div");
@@ -242,23 +242,30 @@
     return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  // ../applyd-extension/content/content.ts
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg.type !== "TRIGGER_FILL_ASSIST") return;
-    handleFillAssist(msg).then(
-      () => sendResponse({ success: true }),
-      (err) => sendResponse({ success: false, error: err instanceof Error ? err.message : "Unknown error" })
-    );
-    return true;
-  });
+  // content/content.ts
+  chrome.runtime.onMessage.addListener(
+    (msg, _sender, sendResponse) => {
+      if (msg.type !== "TRIGGER_FILL_ASSIST") return;
+      handleFillAssist(msg).then(
+        () => sendResponse({ success: true }),
+        (err) => sendResponse({
+          success: false,
+          error: err instanceof Error ? err.message : "Unknown error"
+        })
+      );
+      return true;
+    }
+  );
   async function handleFillAssist(msg) {
-    const { jobId, jobTitle, apiBaseUrl, authToken } = msg;
+    const { jobDescription, apiBaseUrl, authToken } = msg;
     const fields = scanFormFields();
     if (fields.length === 0) {
-      alert("Applyd: No form fields detected on this page.");
+      mountErrorState(
+        "No form fields detected on this page. Make sure you are on a page with input fields."
+      );
       return;
     }
-    mountLoadingState(jobTitle);
+    mountLoadingState("Job application form");
     try {
       const res = await fetch(`${apiBaseUrl}/api/applications/fill-assist`, {
         method: "POST",
@@ -267,7 +274,7 @@
           Authorization: `Bearer ${authToken}`
         },
         body: JSON.stringify({
-          jobId,
+          jobDescription,
           fields: fields.map(({ element, ...rest }) => rest)
         })
       });
@@ -287,12 +294,14 @@
       mountErrorState(err instanceof Error ? err.message : "Unknown error");
     }
   }
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg.type !== "SCAN_FIELDS") return;
-    const fields = scanFormFields();
-    sendResponse({
-      count: fields.length,
-      fields: fields.map(({ element, ...rest }) => rest)
-    });
-  });
+  chrome.runtime.onMessage.addListener(
+    (msg, _sender, sendResponse) => {
+      if (msg.type !== "SCAN_FIELDS") return;
+      const fields = scanFormFields();
+      sendResponse({
+        count: fields.length,
+        fields: fields.map(({ element, ...rest }) => rest)
+      });
+    }
+  );
 })();

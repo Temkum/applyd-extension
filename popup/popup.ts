@@ -1,93 +1,71 @@
 interface StoredSession {
-  authToken: string;
+  token: string;
   apiBaseUrl: string;
+  userEmail: string;
   expiresAt: number;
 }
 
-interface UserJob {
-  id: string;
-  jobTitle: string;
-  company: string;
-}
+const viewDisconnected = document.getElementById('view-disconnected')!;
+const viewMain = document.getElementById('view-main')!;
 
-const statusEl = document.getElementById('status')!;
 const statusText = document.getElementById('status-text')!;
-const jobPicker = document.getElementById('job-picker') as HTMLSelectElement;
+const logoutLink = document.getElementById('logout-link')!;
+
+const jobDesc = document.getElementById('job-desc') as HTMLTextAreaElement;
 const fillBtn = document.getElementById('fill-btn') as HTMLButtonElement;
 const scanBtn = document.getElementById('scan-btn') as HTMLButtonElement;
 const errorEl = document.getElementById('error-msg')!;
+const scanResult = document.getElementById('scan-result')!;
 
 let currentSession: StoredSession | null = null;
-let userJobs: UserJob[] = [];
 
 async function init(): Promise<void> {
   const stored = await chrome.storage.local.get('applydSession');
-  currentSession = stored.applydSession ?? null;
+  const session = stored.applydSession as StoredSession | undefined;
 
-  if (currentSession) {
-    if (currentSession.expiresAt < Date.now()) {
-      setDisconnected('Session expired. Reopen the Applyd dashboard.');
-      return;
-    }
-    await loadJobs();
+  if (session && session.expiresAt > Date.now()) {
+    currentSession = session;
+    showConnected(session.userEmail);
   } else {
-    setDisconnected('Open a job from the Applyd dashboard first.');
-  }
-}
-
-async function loadJobs(): Promise<void> {
-  if (!currentSession) return;
-
-  try {
-    const res = await fetch(
-      `${currentSession.apiBaseUrl}/api/applications/my-jobs-for-extension`,
-      {
-        headers: { Authorization: `Bearer ${currentSession.authToken}` },
-      },
-    );
-
-    if (!res.ok) {
-      setDisconnected('Failed to load jobs. Reconnect from the dashboard.');
-      return;
+    if (session) {
+      await chrome.storage.local.remove('applydSession');
     }
-
-    const data = await res.json();
-    userJobs = data.jobs ?? [];
-
-    jobPicker.innerHTML = '<option value="">Select a job...</option>';
-    for (const j of userJobs) {
-      const opt = document.createElement('option');
-      opt.value = j.id;
-      opt.textContent = `${j.company ? j.company + ' — ' : ''}${j.jobTitle}`;
-      jobPicker.appendChild(opt);
-    }
-
-    jobPicker.disabled = false;
-    fillBtn.disabled = false;
-    setConnected('Ready');
-  } catch {
-    setDisconnected('Network error. Check your connection.');
+    showDisconnected();
   }
+
+  jobDesc.addEventListener('input', () => {
+    fillBtn.disabled = !jobDesc.value.trim();
+  });
 }
 
-function setConnected(text: string): void {
-  statusEl.className = 'status status-connected';
-  statusText.textContent = text;
+function showDisconnected(): void {
+  viewDisconnected.classList.add('active');
+  viewMain.classList.remove('active');
 }
 
-function setDisconnected(text: string): void {
-  statusEl.className = 'status status-disconnected';
-  statusText.textContent = text;
+function showConnected(email: string): void {
+  viewDisconnected.classList.remove('active');
+  viewMain.classList.add('active');
+  statusText.textContent = email;
+  fillBtn.disabled = !jobDesc.value.trim();
 }
+
+logoutLink.addEventListener('click', async () => {
+  await chrome.storage.local.remove('applydSession');
+  currentSession = null;
+  jobDesc.value = '';
+  fillBtn.disabled = true;
+  errorEl.textContent = '';
+  scanResult.hidden = true;
+  showDisconnected();
+});
 
 fillBtn.addEventListener('click', async () => {
-  const userJobId = jobPicker.value;
-  if (!userJobId || !currentSession) return;
-
-  const job = userJobs.find((j) => j.id === userJobId);
-  if (!job) return;
+  const description = jobDesc.value.trim();
+  if (!description || !currentSession) return;
 
   errorEl.textContent = '';
+  scanResult.hidden = true;
   fillBtn.disabled = true;
   fillBtn.textContent = 'Generating...';
 
@@ -102,10 +80,9 @@ fillBtn.addEventListener('click', async () => {
     tab.id,
     {
       type: 'TRIGGER_FILL_ASSIST',
-      jobId: userJobId,
-      jobTitle: `${job.company ? job.company + ' — ' : ''}${job.jobTitle}`,
+      jobDescription: description,
       apiBaseUrl: currentSession.apiBaseUrl,
-      authToken: currentSession.authToken,
+      authToken: currentSession.token,
     },
     (response) => {
       if (chrome.runtime.lastError) {
@@ -118,10 +95,12 @@ fillBtn.addEventListener('click', async () => {
 
       if (!response?.success) {
         showError(response?.error ?? 'Unknown error');
+        resetFillBtn();
+        return;
       }
 
       resetFillBtn();
-      window.close(); // close popup so user sees the sidebar
+      window.close();
     },
   );
 });
@@ -133,29 +112,66 @@ scanBtn.addEventListener('click', async () => {
     return;
   }
 
+  errorEl.textContent = '';
+  scanResult.hidden = true;
+  scanBtn.disabled = true;
+  scanBtn.textContent = 'Scanning...';
+
   chrome.tabs.sendMessage(tab.id, { type: 'SCAN_FIELDS' }, (response) => {
+    scanBtn.disabled = false;
+    scanBtn.textContent = 'Scan Current Form';
+
     if (chrome.runtime.lastError) {
-      showError(
-        'Content script not loaded. Refresh the application form page and try again.',
-      );
+      showError('Content script not loaded. Refresh this page and try again.');
       return;
     }
 
-    if (response?.count !== undefined) {
-      alert(`Found ${response.count} form fields on this page.`);
+    if (response?.count > 0) {
+      showScanResults(response.fields);
     } else {
-      showError('No fields detected.');
+      showError('No form fields detected on this page.');
     }
   });
 });
 
+interface ScannedField {
+  id: string;
+  label: string;
+  type: string;
+  required: boolean;
+}
+
+function showScanResults(fields: ScannedField[]): void {
+  const header = `<div class="scan-result-header">Found ${fields.length} field${fields.length !== 1 ? 's' : ''}</div>`;
+  const items = fields
+    .map(
+      (f) => `
+      <div class="scan-field-item">
+        <span class="scan-field-label" title="${escapeHtml(f.label)}">${escapeHtml(f.label)}</span>
+        <span class="scan-field-type">${escapeHtml(f.type)}${f.required ? ' *' : ''}</span>
+      </div>`,
+    )
+    .join('');
+
+  scanResult.innerHTML = header + items;
+  scanResult.hidden = false;
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function showError(msg: string): void {
+  scanResult.hidden = true;
   errorEl.textContent = msg;
 }
 
 function resetFillBtn(): void {
-  fillBtn.disabled = false;
-  fillBtn.textContent = 'Fill Form';
+  fillBtn.disabled = !jobDesc.value.trim();
+  fillBtn.textContent = 'Generate Answers';
 }
 
 init();
