@@ -1,290 +1,374 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Applyd</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      width: 360px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #fafafa;
-      color: #1a1a1a;
-      font-size: 14px;
-    }
-    .container { padding: 16px; }
-    .logo {
-      font-size: 18px;
-      font-weight: 700;
-      color: #6366f1;
-      margin-bottom: 14px;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Applyd</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        width: 360px;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #fafafa;
+        color: #1a1a1a;
+        font-size: 14px;
+      }
+      .container {
+        padding: 16px;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #6366f1;
+        margin-bottom: 14px;
+      }
+      .logo img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+      }
 
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #6b7280;
-      margin-bottom: 4px;
-    }
-    select, input[type="password"], textarea {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 13px;
-      font-family: inherit;
-      background: #fff;
-      color: #1a1a1a;
-    }
-    select { cursor: pointer; }
-    input[type="password"]:focus,
-    select:focus,
-    textarea:focus {
-      outline: none;
-      border-color: #6366f1;
-      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
-    }
-    textarea { resize: vertical; }
-    .form-group { margin-bottom: 12px; }
+      label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #6b7280;
+        margin-bottom: 4px;
+      }
+      select,
+      input[type='password'],
+      textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: inherit;
+        background: #fff;
+        color: #1a1a1a;
+      }
+      select {
+        cursor: pointer;
+      }
+      input[type='password']:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+      }
+      textarea {
+        resize: vertical;
+      }
+      .form-group {
+        margin-bottom: 12px;
+      }
 
-    .key-hint {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-top: 5px;
-    }
+      .key-hint {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 5px;
+      }
 
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .btn-primary { background: #6366f1; color: #fff; }
-    .btn-primary:hover { background: #4f46e5; }
-    .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
-    .btn-secondary {
-      background: #fff;
-      color: #374151;
-      border: 1px solid #d1d5db;
-      margin-top: 8px;
-    }
-    .btn-secondary:hover { background: #f3f4f6; }
-    .btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+      .btn {
+        display: block;
+        width: 100%;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-primary {
+        background: #6366f1;
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: #4f46e5;
+      }
+      .btn-primary:disabled {
+        background: #a5b4fc;
+        cursor: not-allowed;
+      }
+      .btn-secondary {
+        background: #fff;
+        color: #374151;
+        border: 1px solid #d1d5db;
+        margin-top: 8px;
+      }
+      .btn-secondary:hover {
+        background: #f3f4f6;
+      }
+      .btn-secondary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
 
-    .error {
-      color: #dc2626;
-      font-size: 12px;
-      margin-top: 8px;
-      min-height: 16px;
-    }
-    .hint {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-top: 12px;
-      line-height: 1.5;
-    }
-    .hint a { color: #6366f1; text-decoration: none; }
-    .hint a:hover { text-decoration: underline; }
-    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
+      .error {
+        color: #dc2626;
+        font-size: 12px;
+        margin-top: 8px;
+        min-height: 16px;
+      }
+      .hint {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 12px;
+        line-height: 1.5;
+      }
+      .hint a {
+        color: #6366f1;
+        text-decoration: none;
+      }
+      .hint a:hover {
+        text-decoration: underline;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid #e5e7eb;
+        margin: 12px 0;
+      }
 
-    /* Provider badge shown in main view */
-    .provider-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-    .provider-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 10px;
-      background: #eef2ff;
-      color: #4f46e5;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .provider-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: #6366f1;
-    }
-    .change-key {
-      font-size: 11px;
-      color: #9ca3af;
-      cursor: pointer;
-      text-decoration: underline;
-    }
-    .change-key:hover { color: #dc2626; }
+      /* Provider badge shown in main view */
+      .provider-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .provider-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        background: #eef2ff;
+        color: #4f46e5;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .provider-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #6366f1;
+      }
+      .change-key {
+        font-size: 11px;
+        color: #9ca3af;
+        cursor: pointer;
+        text-decoration: underline;
+      }
+      .change-key:hover {
+        color: #dc2626;
+      }
 
-    /* Scan results */
-    .scan-result {
-      margin-top: 8px;
-      padding: 8px 10px;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 6px;
-      font-size: 12px;
-      max-height: 140px;
-      overflow-y: auto;
-    }
-    .scan-result-header { font-weight: 600; color: #166534; margin-bottom: 6px; }
-    .scan-field-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 2px 0;
-      color: #374151;
-    }
-    .scan-field-label {
-      flex: 1; overflow: hidden;
-      text-overflow: ellipsis; white-space: nowrap;
-      margin-right: 8px;
-    }
-    .scan-field-type { font-size: 10px; color: #9ca3af; text-transform: uppercase; }
+      /* Scan results */
+      .scan-result {
+        margin-top: 8px;
+        padding: 8px 10px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 6px;
+        font-size: 12px;
+        max-height: 140px;
+        overflow-y: auto;
+      }
+      .scan-result-header {
+        font-weight: 600;
+        color: #166534;
+        margin-bottom: 6px;
+      }
+      .scan-field-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 2px 0;
+        color: #374151;
+      }
+      .scan-field-label {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-right: 8px;
+      }
+      .scan-field-type {
+        font-size: 10px;
+        color: #9ca3af;
+        text-transform: uppercase;
+      }
 
-    .label-optional {
-      font-weight: 400;
-      color: #9ca3af;
-    }
+      .label-optional {
+        font-weight: 400;
+        color: #9ca3af;
+      }
 
-    /* Cover letter checkbox row */
-    .cover-letter-row {
-      margin-bottom: 10px;
-    }
-    .checkbox-label {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 13px;
-      font-weight: 500;
-      color: #374151;
-      cursor: pointer;
-      user-select: none;
-    }
-    .checkbox-label input[type="checkbox"] {
-      width: 15px;
-      height: 15px;
-      cursor: pointer;
-      accent-color: #6366f1;
-    }
+      /* Cover letter checkbox row */
+      .cover-letter-row {
+        margin-bottom: 10px;
+      }
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #374151;
+        cursor: pointer;
+        user-select: none;
+      }
+      .checkbox-label input[type='checkbox'] {
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+        accent-color: #6366f1;
+      }
 
-    /* Provider docs links */
-    .provider-links { margin-top: 10px; }
-    .provider-links a {
-      display: block;
-      font-size: 11px;
-      color: #6366f1;
-      text-decoration: none;
-      margin-bottom: 3px;
-    }
-    .provider-links a:hover { text-decoration: underline; }
+      /* Provider docs links */
+      .provider-links {
+        margin-top: 10px;
+      }
+      .provider-links a {
+        display: block;
+        font-size: 11px;
+        color: #6366f1;
+        text-decoration: none;
+        margin-bottom: 3px;
+      }
+      .provider-links a:hover {
+        text-decoration: underline;
+      }
 
-    .view { display: none; }
-    .view.active { display: block; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="logo">Applyd</div>
-
-    <!-- ── Setup view ─────────────────────────────── -->
-    <div id="view-setup" class="view active">
-
-      <div class="form-group">
-        <label for="provider-select">AI Provider</label>
-        <select id="provider-select">
-          <!-- options injected by popup.ts -->
-        </select>
+      .view {
+        display: none;
+      }
+      .view.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">
+        <img src="../icons/applyd-logo.png" alt="Applyd" />
+        Applyd
       </div>
 
-      <div class="form-group">
-        <label for="api-key-input">API Key</label>
-        <input
-          type="password"
-          id="api-key-input"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <p class="key-hint" id="key-hint"></p>
+      <!-- ── Setup view ─────────────────────────────── -->
+      <div id="view-setup" class="view active">
+        <div class="form-group">
+          <label for="provider-select">AI Provider</label>
+          <select id="provider-select">
+            <!-- options injected by popup.ts -->
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="api-key-input">API Key</label>
+          <input
+            type="password"
+            id="api-key-input"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <p class="key-hint" id="key-hint"></p>
+        </div>
+
+        <div class="form-group">
+          <label for="resume-input"
+            >Your Profile / Resume
+            <span class="label-optional"
+              >(optional but recommended)</span
+            ></label
+          >
+          <textarea
+            id="resume-input"
+            rows="6"
+            placeholder="Paste your resume or a brief profile here...&#10;&#10;Include: name, contact info, skills, years of experience, job titles, education, and salary expectations. The more you provide, the more accurate the answers."
+            spellcheck="false"
+          ></textarea>
+          <p class="key-hint">
+            Stored locally. Never sent anywhere except your chosen AI provider.
+          </p>
+        </div>
+
+        <button id="save-key-btn" class="btn btn-primary">Save Key</button>
+        <div id="setup-error" class="error"></div>
+
+        <div class="provider-links">
+          <a href="https://console.anthropic.com/settings/keys" target="_blank"
+            >Get Anthropic key →</a
+          >
+          <a href="https://platform.openai.com/api-keys" target="_blank"
+            >Get OpenAI key →</a
+          >
+          <a href="https://platform.deepseek.com/api_keys" target="_blank"
+            >Get DeepSeek key →</a
+          >
+          <a href="https://aistudio.google.com/app/apikey" target="_blank"
+            >Get Gemini key →</a
+          >
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="resume-input">Your Profile / Resume <span class="label-optional">(optional but recommended)</span></label>
-        <textarea
-          id="resume-input"
-          rows="6"
-          placeholder="Paste your resume or a brief profile here...&#10;&#10;Include: name, contact info, skills, years of experience, job titles, education, and salary expectations. The more you provide, the more accurate the answers."
-          spellcheck="false"
-        ></textarea>
-        <p class="key-hint">Stored locally. Never sent anywhere except your chosen AI provider.</p>
-      </div>
+      <!-- ── Main view ──────────────────────────────── -->
+      <div id="view-main" class="view">
+        <div class="provider-row">
+          <span class="provider-badge">
+            <span class="provider-dot"></span>
+            <span id="provider-badge">Anthropic (Claude)</span>
+          </span>
+          <span class="change-key" id="change-key-link"
+            >Change provider / key</span
+          >
+        </div>
 
-      <button id="save-key-btn" class="btn btn-primary">Save Key</button>
-      <div id="setup-error" class="error"></div>
+        <div class="form-group">
+          <label for="job-desc">Job Description</label>
+          <textarea
+            id="job-desc"
+            rows="7"
+            placeholder="Paste the full job description here...&#10;&#10;Include the role, requirements, and company info so Applyd can generate accurate answers."
+          ></textarea>
+        </div>
 
-      <div class="provider-links">
-        <a href="https://console.anthropic.com/settings/keys" target="_blank">Get Anthropic key →</a>
-        <a href="https://platform.openai.com/api-keys" target="_blank">Get OpenAI key →</a>
-        <a href="https://platform.deepseek.com/api_keys" target="_blank">Get DeepSeek key →</a>
-        <a href="https://aistudio.google.com/app/apikey" target="_blank">Get Gemini key →</a>
+        <div class="cover-letter-row">
+          <label class="checkbox-label" for="cover-letter-checkbox">
+            <input type="checkbox" id="cover-letter-checkbox" />
+            Generate cover letter
+          </label>
+        </div>
+
+        <button id="fill-btn" class="btn btn-primary" disabled>
+          Generate Answers
+        </button>
+        <button id="scan-btn" class="btn btn-secondary">
+          Scan Current Form
+        </button>
+
+        <div id="error-msg" class="error"></div>
+        <div id="scan-result" class="scan-result" hidden></div>
+
+        <hr class="divider" />
+        <p class="hint">
+          Navigate to the job application form, paste the description above,
+          then click <strong>Generate Answers</strong>. A sidebar will appear
+          with answers you can copy into each field.
+        </p>
       </div>
     </div>
 
-    <!-- ── Main view ──────────────────────────────── -->
-    <div id="view-main" class="view">
-
-      <div class="provider-row">
-        <span class="provider-badge">
-          <span class="provider-dot"></span>
-          <span id="provider-badge">Anthropic (Claude)</span>
-        </span>
-        <span class="change-key" id="change-key-link">Change provider / key</span>
-      </div>
-
-      <div class="form-group">
-        <label for="job-desc">Job Description</label>
-        <textarea
-          id="job-desc"
-          rows="7"
-          placeholder="Paste the full job description here...&#10;&#10;Include the role, requirements, and company info so Applyd can generate accurate answers."
-        ></textarea>
-      </div>
-
-      <div class="cover-letter-row">
-        <label class="checkbox-label" for="cover-letter-checkbox">
-          <input type="checkbox" id="cover-letter-checkbox" />
-          Generate cover letter
-        </label>
-      </div>
-
-      <button id="fill-btn" class="btn btn-primary" disabled>
-        Generate Answers
-      </button>
-      <button id="scan-btn" class="btn btn-secondary">
-        Scan Current Form
-      </button>
-
-      <div id="error-msg" class="error"></div>
-      <div id="scan-result" class="scan-result" hidden></div>
-
-      <hr class="divider" />
-      <p class="hint">
-        Navigate to the job application form, paste the description above,
-        then click <strong>Generate Answers</strong>. A sidebar will appear
-        with answers you can copy into each field.
-      </p>
-    </div>
-  </div>
-
-  <script src="popup.js"></script>
-</body>
+    <script src="popup.js"></script>
+  </body>
 </html>
